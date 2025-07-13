@@ -1,0 +1,161 @@
+from flask import Flask, render_template_string
+
+app = Flask(__name__)
+
+html_code = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LiveTvGlobal</title>
+<style>
+  body {
+    margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #0e0e0e; color: white;
+  }
+  header {
+    background-color: #1a1a1a; padding: 20px;
+    font-size: 24px; font-weight: bold; border-bottom: 1px solid #333;
+    text-align: left;
+  }
+  .video-player {
+    width: 100%; height: 320px; background: black;
+    margin: 15px 0;
+    border-radius: 12px;
+  }
+  video {
+    width: 100%; height: 100%; border-radius: 12px;
+  }
+  .category-label {
+    margin: 30px 20px 10px 20px;
+    font-size: 20px; font-weight: 600;
+    border-bottom: 1px solid #444;
+  }
+  .channel-list {
+    margin: 0 20px 0 20px;
+    display: flex; flex-direction: column;
+    gap: 10px;
+  }
+  .channel-item {
+    background-color: #111; padding: 12px;
+    border-radius: 8px; cursor: pointer;
+    display: flex; align-items: center;
+    transition: background-color 0.3s;
+  }
+  .channel-item:hover, .channel-item.active {
+    background-color: #333;
+  }
+  .channel-thumb {
+    width: 90px; height: 50px; object-fit: contain;
+    margin-right: 15px; border-radius: 6px;
+    background: #222;
+  }
+  .channel-name {
+    font-size: 16px;
+  }
+</style>
+</head>
+<body>
+
+<header>LiveTvGlobal - Watch Live Channels Worldwide</header>
+
+<div class="video-player" id="videoPlayer">
+  <video id="player" controls autoplay playsinline></video>
+</div>
+
+<div class="category-label">Kids Channels</div>
+<div class="channel-list" id="kidsChannels"></div>
+
+<div class="category-label">Movies Channels</div>
+<div class="channel-list" id="moviesChannels"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script>
+  const kidsChannels = [
+    {
+      name: "Nickelodeon East",
+      url: "https://list.iptvcat.com/my_list/s/bcbbdf635afdc3df620d674b24361863.m3u8",
+      thumbnail: "https://upload.wikimedia.org/wikipedia/commons/f/f9/Nickelodeon_HD%2B_Logo_2024.png"
+    },
+    {
+      name: "Nick Pluto",
+      url: "https://list.iptvcat.com/my_list/s/7301ad67e0ac613664c4f782118d3343.m3u8",
+      thumbnail: "https://upload.wikimedia.org/wikipedia/commons/f/f9/Nickelodeon_HD%2B_Logo_2024.png"
+    },
+    {name: "BabyTV", url: "https://list.iptvcat.com/my_list/s/7a031e03d3e68ff6c316f8d9e4abdf4b.m3u8", thumbnail: "https://upload.wikimedia.org/wikipedia/en/5/5e/BabyTV_logo.svg"},
+    {name: "Cartoon Network", url: "https://list.iptvcat.com/my_list/s/45656b3a1e61a19c728c19e1d95a9b48.m3u8", thumbnail: "https://upload.wikimedia.org/wikipedia/en/3/30/Cartoon_Network_2010_logo.svg"},
+    {name: "Disney Channel", url: "https://list.iptvcat.com/my_list/s/5a46753e7468d2f6ebf8e09b2ee6349a.m3u8", thumbnail: "https://upload.wikimedia.org/wikipedia/commons/f/f1/Disney_Channel_logo_2014.svg"},
+    {name: "PBS Kids", url: "https://list.iptvcat.com/my_list/s/2a645a13f84a111164a7f0f3f2159486.m3u8", thumbnail: "https://upload.wikimedia.org/wikipedia/en/e/e0/PBS_Kids_logo.svg"},
+    {name: "Boomerang", url: "https://list.iptvcat.com/my_list/s/3bc3d88dbaf32edca2b0d5d69d930169.m3u8", thumbnail: "https://upload.wikimedia.org/wikipedia/en/8/88/Boomerang_logo.svg"},
+    {name: "Cartoonito", url: "https://list.iptvcat.com/my_list/s/1c68387ac09adffdf26f8b2cde82f728.m3u8", thumbnail: "https://upload.wikimedia.org/wikipedia/en/f/f0/Cartoonito_logo.svg"},
+    {name: "Discovery Kids", url: "https://list.iptvcat.com/my_list/s/dc29b62c6f74c63658417e35cc0429c5.m3u8", thumbnail: "https://upload.wikimedia.org/wikipedia/en/4/48/Discovery_Kids_logo.svg"},
+    {name: "Nick Jr.", url: "https://list.iptvcat.com/my_list/s/1a5d5842faed8b40f6f9f8b2f1d64b18.m3u8", thumbnail: "https://upload.wikimedia.org/wikipedia/en/9/94/Nick_Jr._Logo.svg"}
+  ];
+
+  const moviesChannels = [
+    {name: "Classic Movies", url: "https://list.iptvcat.com/my_list/s/6b1f3a2c6f6df0e4c6b5c4fbc45fa609.m3u8", thumbnail: "https://upload.wikimedia.org/wikipedia/commons/9/98/Classic_Movies_logo.svg"},
+    {name: "Film4", url: "https://list.iptvcat.com/my_list/s/50b68c66bfda2adbd0f51d6d7f0edebf.m3u8", thumbnail: "https://upload.wikimedia.org/wikipedia/en/5/5f/Film4_logo.svg"},
+    {name: "HBO Movies", url: "https://list.iptvcat.com/my_list/s/7d02d930b3a5700b4876525c194b1be9.m3u8", thumbnail: "https://upload.wikimedia.org/wikipedia/commons/1/17/HBO_logo.svg"},
+    {name: "Cinemax", url: "https://list.iptvcat.com/my_list/s/8e2de254d15a0c9a3af0bf9d944896ea.m3u8", thumbnail: "https://upload.wikimedia.org/wikipedia/en/f/f9/Cinemax_logo.svg"},
+    {name: "AMC", url: "https://list.iptvcat.com/my_list/s/93e0d7b9629ecbc5a8c40f64c5f4bb94.m3u8", thumbnail: "https://upload.wikimedia.org/wikipedia/commons/6/6b/AMC_2014_logo.svg"},
+    {name: "TMC", url: "https://list.iptvcat.com/my_list/s/4d4c8b81c90bc97c9d7551a20ab2b045.m3u8", thumbnail: "https://upload.wikimedia.org/wikipedia/en/e/e3/TMC_logo_2016.svg"},
+    {name: "Showtime", url: "https://list.iptvcat.com/my_list/s/3555c0bbd936e1e0e4bc58ed16d9b931.m3u8", thumbnail: "https://upload.wikimedia.org/wikipedia/commons/4/44/Showtime_Logo.svg"},
+    {name: "Starz", url: "https://list.iptvcat.com/my_list/s/9989df1f1c40bde28821c1b79b9c6a0f.m3u8", thumbnail: "https://upload.wikimedia.org/wikipedia/en/7/7a/Starz_Logo.svg"},
+    {name: "FX Movies", url: "https://list.iptvcat.com/my_list/s/887c1c93190d0e4921996f524a507d9d.m3u8", thumbnail: "https://upload.wikimedia.org/wikipedia/commons/9/9b/FX_logo.svg"},
+    {name: "Movie Central", url: "https://list.iptvcat.com/my_list/s/1c4c7391f041228f45cc61bb89aa9a87.m3u8", thumbnail: "https://upload.wikimedia.org/wikipedia/commons/e/e5/Movie_Central_logo.svg"}
+  ];
+
+  function loadChannels(containerId, channels) {
+    const container = document.getElementById(containerId);
+    channels.forEach((ch, i) => {
+      const div = document.createElement('div');
+      div.className = 'channel-item';
+      if(i === 0 && containerId === 'kidsChannels') div.classList.add('active');
+      div.tabIndex = 0;
+      div.innerHTML = `
+        <img src="${ch.thumbnail}" alt="${ch.name} thumbnail" class="channel-thumb" />
+        <div class="channel-name">${ch.name}</div>
+      `;
+      div.onclick = () => {
+        document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
+        div.classList.add('active');
+        playStream(ch.url);
+      };
+      container.appendChild(div);
+    });
+  }
+
+  function playStream(url) {
+    const video = document.getElementById('player');
+    if(Hls.isSupported()) {
+      if(window.hls) window.hls.destroy();
+      window.hls = new Hls();
+      window.hls.loadSource(url);
+      window.hls.attachMedia(video);
+      window.hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+    } else if(video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = url;
+      video.addEventListener('loadedmetadata', () => video.play());
+    } else {
+      alert('Your browser does not support HLS playback.');
+    }
+  }
+
+  loadChannels('kidsChannels', kidsChannels);
+  loadChannels('moviesChannels', moviesChannels);
+
+  playStream(kidsChannels[0].url);  // autoplay first kids channel
+</script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</body>
+</html>
+
+"""
+
+@app.route("/")
+def index():
+    return render_template_string(html_code)
+
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=5000)
